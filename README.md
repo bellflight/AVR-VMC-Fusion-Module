@@ -14,7 +14,7 @@ This is the only module which is pure Python and has no hardware component.
 
 It's assumed you have a version of Python installed from
 [python.org](https://python.org) that is the same or newer as
-defined in [`.python-version`](.python-version).
+defined in the [`Dockerfile`](Dockerfile).
 
 First, install [Poetry](https://python-poetry.org/):
 
