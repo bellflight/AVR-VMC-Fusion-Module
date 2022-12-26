@@ -19,6 +19,6 @@ COPY --from=poetry-exporter /work/requirements.txt requirements.txt
 RUN python -m pip install pip wheel --upgrade \
  && python -m pip install -r requirements.txt
 
-COPY . .
+COPY src .
 
 CMD ["python", "fusion.py"]
