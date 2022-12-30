@@ -380,8 +380,8 @@ def test_on_apriltag_message(
     fusion_module.message_cache["avr/fusion/attitude/heading"] = heading
 
     fusion_module.on_apriltag_message(payload)
-    assert fusion_module.deriv == pytest.approx(expected_deriv)
-    assert fusion_module.last_pos == pytest.approx(expected_pos)
+    assert fusion_module.deriv == pytest.approx(expected_deriv, rel=1e-3)
+    assert fusion_module.last_pos == pytest.approx(expected_pos, rel=1e-3)
 
     if expected_resync:
         fusion_module.send_message.assert_called_once_with(
