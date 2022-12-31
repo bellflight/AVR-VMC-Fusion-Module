@@ -37,4 +37,11 @@ def fusion_module(mocker: MockerFixture) -> FusionModule:
     # overwrite default lat/lon for testing
     module.ORIGIN = (0.0, 0.0, 0.0)
 
+    # also for testing, make these constant
+    module.COURSE_THRESHOLD = 10
+    module.POS_DETLA_THRESHOLD = 10
+    module.POS_D_THRESHOLD = 30
+    module.HEADING_DELTA_THRESHOLD = 5
+    module.AT_DERIV_THRESHOLD = 10
+
     return module
