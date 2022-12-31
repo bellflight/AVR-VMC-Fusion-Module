@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -27,21 +28,28 @@ def fusion_module(mocker: MockerFixture) -> FusionModule:
     mocker.patch("bell.avr.utils.decorators.run_forever", dont_run_forever)
 
     # patch the send message function
+    sys.path.append("src")
     mocker.patch("src.fusion.FusionModule.send_message")
+
+    # overwrite default lat/lon for testing
+    mocker.patch("config.ORIGIN", (0.0, 0.0, 0.0))
+    # also for testing, make these constant
+    mocker.patch(
+        "config.HIL_GPS_CONSTANTS",
+        {
+            "fix_type": 3,
+            "eph": 20,
+            "epv": 5,
+            "satellites_visible": 13,
+        },
+    )
+    mocker.patch("config.COURSE_THRESHOLD", 10)
+    mocker.patch("config.POS_DETLA_THRESHOLD", 10)
+    mocker.patch("config.POS_D_THRESHOLD", 30)
+    mocker.patch("config.HEADING_DELTA_THRESHOLD", 5)
+    mocker.patch("config.AT_DERIV_THRESHOLD", 10)
 
     # create module object
     from src.fusion import FusionModule
 
-    module = FusionModule()
-
-    # overwrite default lat/lon for testing
-    module.ORIGIN = (0.0, 0.0, 0.0)
-
-    # also for testing, make these constant
-    module.COURSE_THRESHOLD = 10
-    module.POS_DETLA_THRESHOLD = 10
-    module.POS_D_THRESHOLD = 30
-    module.HEADING_DELTA_THRESHOLD = 5
-    module.AT_DERIV_THRESHOLD = 10
-
-    return module
+    return FusionModule()

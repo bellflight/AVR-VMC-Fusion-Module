@@ -27,28 +27,12 @@ from bell.avr.mqtt.payloads import (
 from bell.avr.utils.decorators import run_forever, try_except
 from loguru import logger
 
+import config
+
 
 class FusionModule(MQTTModule):
     def __init__(self):
         super().__init__()
-
-        # constants
-
-        # Bell HQ VIP helipad
-        # https://www.google.com/maps/place/32%C2%B048'30.8%22N+97%C2%B009'22.8%22W
-        self.ORIGIN = (32.808549, -97.156345, 161.5)
-
-        self.HIL_GPS_CONSTANTS = {
-            "fix_type": 3,
-            "eph": 20,
-            "epv": 5,
-            "satellites_visible": 13,
-        }
-        self.COURSE_THRESHOLD = 10
-        self.POS_DETLA_THRESHOLD = 10
-        self.POS_D_THRESHOLD = 30
-        self.HEADING_DELTA_THRESHOLD = 5
-        self.AT_DERIV_THRESHOLD = 10
 
         # on_apriltag storage
         self.last_pos = [0, 0, 0]
@@ -76,7 +60,7 @@ class FusionModule(MQTTModule):
             float(payload["e"]) / 100,  # East   | Y
             float(payload["n"]) / 100,  # North  | X
             -1 * float(payload["d"]) / 100,  # Up     | Z
-            *self.ORIGIN,
+            *config.ORIGIN,
             deg=True,
         )
 
@@ -120,7 +104,7 @@ class FusionModule(MQTTModule):
 
         # arctan gets real noisy when the values get small, so we just lock course
         # to heading when we aren't really moving
-        if gs >= self.COURSE_THRESHOLD:
+        if gs >= config.COURSE_THRESHOLD:
             course = math.atan2(payload["e"], payload["n"])
             # wrap [-pi, pi] to [0, 360]
             if course < 0:
@@ -185,7 +169,7 @@ class FusionModule(MQTTModule):
 
         elif (
             self.message_cache["avr/fusion/groundspeed"]["groundspeed"]
-            < self.COURSE_THRESHOLD
+            < config.COURSE_THRESHOLD
         ):
             self.message_cache["avr/fusion/course"] = AvrFusionCoursePayload(
                 course=payload["degrees"]
@@ -245,20 +229,20 @@ class FusionModule(MQTTModule):
 
         hil_gps_update = AvrFusionHilGpsPayload(
             time_usec=int(time.time() * 1000000),
-            fix_type=int(self.HIL_GPS_CONSTANTS["fix_type"]),  # 3 - 3D fix
+            fix_type=int(config.HIL_GPS_CONSTANTS["fix_type"]),  # 3 - 3D fix
             lat=lat,
             lon=lon,
             alt=int(
                 self.message_cache["avr/fusion/geo"]["alt"] * 1000
             ),  # convert m to mm
-            eph=int(self.HIL_GPS_CONSTANTS["eph"]),  # cm
-            epv=int(self.HIL_GPS_CONSTANTS["epv"]),  # cm
+            eph=int(config.HIL_GPS_CONSTANTS["eph"]),  # cm
+            epv=int(config.HIL_GPS_CONSTANTS["epv"]),  # cm
             vel=gs,
             vn=int(self.message_cache["avr/fusion/velocity/ned"]["Vn"]),
             ve=int(self.message_cache["avr/fusion/velocity/ned"]["Ve"]),
             vd=int(self.message_cache["avr/fusion/velocity/ned"]["Vd"]),
             cog=int(crs * 100),
-            satellites_visible=int(self.HIL_GPS_CONSTANTS["satellites_visible"]),
+            satellites_visible=int(config.HIL_GPS_CONSTANTS["satellites_visible"]),
             heading=heading,
         )
         self.send_message("avr/fusion/hil_gps", hil_gps_update)
@@ -303,12 +287,12 @@ class FusionModule(MQTTModule):
 
         deriv_norm = np.linalg.norm(self.deriv)
         if (
-            norm > self.POS_DETLA_THRESHOLD
-            or abs(heading_delta) > self.HEADING_DELTA_THRESHOLD
-        ) and deriv_norm < self.AT_DERIV_THRESHOLD:
+            norm > config.POS_DETLA_THRESHOLD
+            or abs(heading_delta) > config.HEADING_DELTA_THRESHOLD
+        ) and deriv_norm < config.AT_DERIV_THRESHOLD:
             logger.debug(f"Resync Triggered! Delta={norm}")
 
-            if d_dist > self.POS_D_THRESHOLD:
+            if d_dist > config.POS_D_THRESHOLD:
                 # don't resync Z if del_d is too great,
                 # reject AT readings that are extraineous
                 at_ned["d"] = cam_ned["d"]
