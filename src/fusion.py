@@ -5,7 +5,7 @@ from typing import List, Tuple
 import config
 import numpy as np
 import pymap3d
-from bell.avr.mqtt.client import MQTTModule
+from bell.avr.mqtt.module import MQTTModule
 from bell.avr.mqtt.payloads import (
     AVRAprilTagsVehiclePosition,
     AVRFusionAttitudeEulerRadians,
@@ -38,7 +38,7 @@ class FusionModule(MQTTModule):
         self.deriv: List[float] = [0, 0, 0]
         self.last_apriltag = time.time()
 
-        self.topic_map = {
+        self.topic_callbacks = {
             "avr/vio/position/local": self.fuse_pos,
             "avr/vio/attitude/euler/radians": self.fuse_att_euler,
             "avr/vio/heading": self.fuse_att_heading,
