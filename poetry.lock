@@ -351,21 +351,24 @@ virtualenv = ">=20.10.0"
 
 [[package]]
 name = "pymap3d"
-version = "2.9.1"
+version = "3.0.0"
 description = "pure Python (no prereqs) coordinate conversions, following convention of several popular Matlab routines."
 category = "main"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "pymap3d-2.9.1-py3-none-any.whl", hash = "sha256:a0a14973097cd4f9ce8b87512349e3f1af1f9bd704a5bb0762032a879d12b816"},
-    {file = "pymap3d-2.9.1.tar.gz", hash = "sha256:6286acf6b36e93ee92d6cc9c0353c258709edfeacd876dc5e87ec2b90ff7ee66"},
+    {file = "pymap3d-3.0.0-py3-none-any.whl", hash = "sha256:bc9a32ce57e3718fab602a02951d21d02f9bcd1f4b69ed77b7fa995b3febcb88"},
+    {file = "pymap3d-3.0.0.tar.gz", hash = "sha256:6c882595cfd296dbc4a8846fd4f98283e3b2faff8c2a682e46f7f18dcce8c46f"},
 ]
 
 [package.extras]
-full = ["astropy", "numpy (>=1.10.0)", "python-dateutil", "xarray"]
-lint = ["flake8", "flake8-blind-except", "flake8-bugbear", "flake8-builtins", "mypy (>=0.800)", "types-python-dateutil", "types-requests"]
-testproj = ["pyproj"]
-tests = ["pytest"]
+core = ["numpy (>=1.10.0)", "python-dateutil"]
+coverage = ["pytest-cov"]
+format = ["black[jupyter]", "isort"]
+full = ["astropy", "xarray"]
+lint = ["flake8", "flake8-blind-except", "flake8-bugbear", "flake8-builtins", "mypy", "types-python-dateutil", "types-requests"]
+proj = ["pyproj"]
+tests = ["pytest", "pytest-timeout"]
 
 [[package]]
 name = "pytest"
@@ -546,4 +549,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "c97f675e9c19d7e8f6a6ce9d139df36a55ff608fd8643e4c45ee7dea1699ca95"
+content-hash = "7778ae101dceebc5dd23ac67819abb553f3632f875f08392061e22ae6340bba5"
