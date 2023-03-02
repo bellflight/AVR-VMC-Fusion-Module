@@ -11,7 +11,7 @@
     python             = ">=3.9,<3.12"
     loguru             = "^0.6.0"
     bell-avr-libraries = { extras = ["mqtt"], version = "^0.1.12" }
-    numpy              = "^1.23.5"
+    numpy              = "^1.24.2"
     pymap3d            = "^3.0.0"
 
 [tool.poetry.group.dev.dependencies]
