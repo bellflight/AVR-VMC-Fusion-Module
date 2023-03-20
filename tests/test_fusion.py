@@ -5,24 +5,23 @@ from typing import TYPE_CHECKING, List, Optional
 
 import pytest
 from bell.avr.mqtt.payloads import (
-    AvrApriltagsSelectedPayload,
-    AvrApriltagsSelectedPos,
-    AvrFusionAttitudeEulerPayload,
-    AvrFusionAttitudeHeadingPayload,
-    AvrFusionAttitudeQuatPayload,
-    AvrFusionClimbratePayload,
-    AvrFusionCoursePayload,
-    AvrFusionGeoPayload,
-    AvrFusionGroundspeedPayload,
-    AvrFusionHilGpsPayload,
-    AvrFusionPositionNedPayload,
-    AvrFusionVelocityNedPayload,
-    AvrVioHeadingPayload,
-    AvrVioOrientationEulPayload,
-    AvrVioOrientationQuatPayload,
-    AvrVioPositionNedPayload,
-    AvrVioResyncPayload,
-    AvrVioVelocityNedPayload,
+    AVRFusionPositionGlobal,
+    AVRFusionPositionLocal,
+    AVRVIOPositionLocal,
+    AVRVIOVelocity,
+    AVRFusionVelocity,
+    AVRFusionGroundspeed,
+    AVRFusionClimbRate,
+    AVRFusionCourse,
+    AVRVIOAttitudeQuaternion,
+    AVRFusionAttitudeQuaternion,
+    AVRVIOAttitudeEulerRadians,
+    AVRFusionAttitudeEulerRadians,
+    AVRVIOHeading,
+    AVRFusionHeading,
+    AVRFusionHILGPSMessage,
+    AVRVIOResync,
+    AVRAprilTagsVehiclePosition,
 )
 
 if TYPE_CHECKING:
@@ -33,12 +32,12 @@ if TYPE_CHECKING:
     "payload, expected",
     [
         (
-            AvrFusionPositionNedPayload(n=0, e=0, d=0),
-            AvrFusionGeoPayload(lat=0, lon=0, alt=0),
+            AVRFusionPositionLocal(n=0, e=0, d=0),
+            AVRFusionPositionGlobal(lat=0, lon=0, alt=0),
         ),
         (
-            AvrFusionPositionNedPayload(n=1000, e=1000, d=1000),
-            AvrFusionGeoPayload(
+            AVRFusionPositionLocal(n=1000, e=1000, d=1000),
+            AVRFusionPositionGlobal(
                 lat=9.043709045278911e-05,
                 lon=8.983166925499504e-05,
                 alt=-9.99998426904285,
@@ -48,34 +47,36 @@ if TYPE_CHECKING:
 )
 def test_local_to_geo(
     fusion_module: FusionModule,
-    payload: AvrFusionPositionNedPayload,
-    expected: AvrFusionGeoPayload,
+    payload: AVRFusionPositionLocal,
+    expected: AVRFusionPositionGlobal,
 ) -> None:
     fusion_module.local_to_geo(payload)
-    fusion_module.send_message.assert_called_once_with("avr/fusion/geo", expected)
+    fusion_module.send_message.assert_called_once_with(
+        "avr/fusion/position/global", expected
+    )
 
 
 @pytest.mark.parametrize(
     "payload, expected",
     [
         (
-            AvrVioPositionNedPayload(n=0, e=0, d=0),
-            AvrFusionPositionNedPayload(n=0, e=0, d=0),
+            AVRVIOPositionLocal(n=0, e=0, d=0),
+            AVRFusionPositionLocal(n=0, e=0, d=0),
         ),
         (
-            AvrVioPositionNedPayload(n=1000, e=1000, d=1000),
-            AvrFusionPositionNedPayload(n=1000, e=1000, d=1000),
+            AVRVIOPositionLocal(n=1000, e=1000, d=1000),
+            AVRFusionPositionLocal(n=1000, e=1000, d=1000),
         ),
     ],
 )
 def test_fuse_pos(
     fusion_module: FusionModule,
-    payload: AvrVioPositionNedPayload,
-    expected: AvrFusionPositionNedPayload,
+    payload: AVRVIOPositionLocal,
+    expected: AVRFusionPositionLocal,
 ) -> None:
     fusion_module.fuse_pos(payload)
     fusion_module.send_message.assert_called_once_with(
-        "avr/fusion/position/ned", expected
+        "avr/fusion/position/local", expected
     )
 
 
@@ -83,35 +84,33 @@ def test_fuse_pos(
     "payload, velocity_expected, groundspeed_expected, climbrate_expected",
     [
         (
-            AvrVioVelocityNedPayload(n=0, e=0, d=0),
-            AvrFusionVelocityNedPayload(Vn=0, Ve=0, Vd=0),
-            AvrFusionGroundspeedPayload(groundspeed=0),
-            AvrFusionClimbratePayload(climb_rate_fps=0),
+            AVRVIOVelocity(Vn=0, Ve=0, Vd=0),
+            AVRFusionVelocity(Vn=0, Ve=0, Vd=0),
+            AVRFusionGroundspeed(groundspeed=0),
+            AVRFusionClimbRate(climb_rate=0),
         ),
         (
-            AvrVioVelocityNedPayload(n=1, e=2, d=3),
-            AvrFusionVelocityNedPayload(Vn=1, Ve=2, Vd=3),
-            AvrFusionGroundspeedPayload(groundspeed=2.23606797749979),
-            AvrFusionClimbratePayload(climb_rate_fps=-590.55),
+            AVRVIOVelocity(Vn=1, Ve=2, Vd=3),
+            AVRFusionVelocity(Vn=1, Ve=2, Vd=3),
+            AVRFusionGroundspeed(groundspeed=2.23606797749979),
+            AVRFusionClimbRate(climb_rate=-590.55),
         ),
     ],
 )
 def test_fuse_vel(
     fusion_module: FusionModule,
-    payload: AvrVioVelocityNedPayload,
-    velocity_expected: AvrFusionVelocityNedPayload,
-    groundspeed_expected: AvrFusionGroundspeedPayload,
-    climbrate_expected: AvrFusionClimbratePayload,
+    payload: AVRVIOVelocity,
+    velocity_expected: AVRFusionVelocity,
+    groundspeed_expected: AVRFusionGroundspeed,
+    climbrate_expected: AVRFusionClimbRate,
 ) -> None:
     fusion_module.fuse_vel(payload)
-    fusion_module.send_message.assert_any_call(
-        "avr/fusion/velocity/ned", velocity_expected
-    )
+    fusion_module.send_message.assert_any_call("avr/fusion/velocity", velocity_expected)
     fusion_module.send_message.assert_any_call(
         "avr/fusion/groundspeed", groundspeed_expected
     )
     fusion_module.send_message.assert_any_call(
-        "avr/fusion/climbrate", climbrate_expected
+        "avr/fusion/climb_rate", climbrate_expected
     )
     assert fusion_module.send_message.call_count == 3
 
@@ -120,36 +119,34 @@ def test_fuse_vel(
     "payload, velocity_expected, groundspeed_expected, course_expected, climbrate_expected",
     [
         (
-            AvrVioVelocityNedPayload(n=25, e=25, d=0),
-            AvrFusionVelocityNedPayload(Vn=25, Ve=25, Vd=0),
-            AvrFusionGroundspeedPayload(groundspeed=35.35533905932738),
-            AvrFusionCoursePayload(course=45),
-            AvrFusionClimbratePayload(climb_rate_fps=0),
+            AVRVIOVelocity(Vn=25, Ve=25, Vd=0),
+            AVRFusionVelocity(Vn=25, Ve=25, Vd=0),
+            AVRFusionGroundspeed(groundspeed=35.35533905932738),
+            AVRFusionCourse(course=45),
+            AVRFusionClimbRate(climb_rate=0),
         )
     ],
 )
 def test_fuse_vel_course(
     fusion_module: FusionModule,
-    payload: AvrVioVelocityNedPayload,
-    velocity_expected: AvrFusionVelocityNedPayload,
-    groundspeed_expected: AvrFusionGroundspeedPayload,
-    course_expected: AvrFusionCoursePayload,
-    climbrate_expected: AvrFusionClimbratePayload,
+    payload: AVRVIOVelocity,
+    velocity_expected: AVRFusionVelocity,
+    groundspeed_expected: AVRFusionGroundspeed,
+    course_expected: AVRFusionCourse,
+    climbrate_expected: AVRFusionClimbRate,
 ) -> None:
     """
     At high ground speed, we also publish a course message.
     """
 
     fusion_module.fuse_vel(payload)
-    fusion_module.send_message.assert_any_call(
-        "avr/fusion/velocity/ned", velocity_expected
-    )
+    fusion_module.send_message.assert_any_call("avr/fusion/velocity", velocity_expected)
     fusion_module.send_message.assert_any_call(
         "avr/fusion/groundspeed", groundspeed_expected
     )
     fusion_module.send_message.assert_any_call("avr/fusion/course", course_expected)
     fusion_module.send_message.assert_any_call(
-        "avr/fusion/climbrate", climbrate_expected
+        "avr/fusion/climb_rate", climbrate_expected
     )
     assert fusion_module.send_message.call_count == 4
 
@@ -158,23 +155,23 @@ def test_fuse_vel_course(
     "payload, expected",
     [
         (
-            AvrVioOrientationQuatPayload(w=0, x=0, y=0, z=0),
-            AvrFusionAttitudeQuatPayload(w=0, x=0, y=0, z=0),
+            AVRVIOAttitudeQuaternion(w=0, x=0, y=0, z=0),
+            AVRFusionAttitudeQuaternion(w=0, x=0, y=0, z=0),
         ),
         (
-            AvrVioOrientationQuatPayload(w=1, x=2, y=3, z=4),
-            AvrFusionAttitudeQuatPayload(w=1, x=2, y=3, z=4),
+            AVRVIOAttitudeQuaternion(w=0.2, x=0.4, y=0.6, z=0.8),
+            AVRFusionAttitudeQuaternion(w=0.2, x=0.4, y=0.6, z=0.8),
         ),
     ],
 )
 def test_fuse_att_quat(
     fusion_module: FusionModule,
-    payload: AvrVioOrientationQuatPayload,
-    expected: AvrFusionAttitudeQuatPayload,
+    payload: AVRVIOAttitudeQuaternion,
+    expected: AVRFusionAttitudeQuaternion,
 ) -> None:
     fusion_module.fuse_att_quat(payload)
     fusion_module.send_message.assert_called_once_with(
-        "avr/fusion/attitude/quat", expected
+        "avr/fusion/attitude/quaternion", expected
     )
 
 
@@ -182,23 +179,23 @@ def test_fuse_att_quat(
     "payload, expected",
     [
         (
-            AvrVioOrientationEulPayload(psi=0, theta=0, phi=0),
-            AvrFusionAttitudeEulerPayload(psi=0, theta=0, phi=0),
+            AVRVIOAttitudeEulerRadians(psi=0, theta=0, phi=0),
+            AVRFusionAttitudeEulerRadians(psi=0, theta=0, phi=0),
         ),
         (
-            AvrVioOrientationEulPayload(psi=1, theta=2, phi=3),
-            AvrFusionAttitudeEulerPayload(psi=1, theta=2, phi=3),
+            AVRVIOAttitudeEulerRadians(psi=1, theta=2, phi=3),
+            AVRFusionAttitudeEulerRadians(psi=1, theta=2, phi=3),
         ),
     ],
 )
 def test_fuse_att_euler(
     fusion_module: FusionModule,
-    payload: AvrVioOrientationEulPayload,
-    expected: AvrFusionAttitudeEulerPayload,
+    payload: AVRVIOAttitudeEulerRadians,
+    expected: AVRFusionAttitudeEulerRadians,
 ) -> None:
     fusion_module.fuse_att_euler(payload)
     fusion_module.send_message.assert_called_once_with(
-        "avr/fusion/attitude/euler", expected
+        "avr/fusion/attitude/euler/radians", expected
     )
 
 
@@ -206,58 +203,54 @@ def test_fuse_att_euler(
     "payload, expected",
     [
         (
-            AvrVioHeadingPayload(degrees=0),
-            AvrFusionAttitudeHeadingPayload(heading=0),
+            AVRVIOHeading(hdg=0),
+            AVRFusionHeading(hdg=0),
         ),
         (
-            AvrVioHeadingPayload(degrees=45),
-            AvrFusionAttitudeHeadingPayload(heading=45),
+            AVRVIOHeading(hdg=45),
+            AVRFusionHeading(hdg=45),
         ),
     ],
 )
 def test_fuse_att_heading_empty(
     fusion_module: FusionModule,
-    payload: AvrVioHeadingPayload,
-    expected: AvrFusionAttitudeHeadingPayload,
+    payload: AVRVIOHeading,
+    expected: AVRFusionHeading,
 ) -> None:
     fusion_module.fuse_att_heading(payload)
-    fusion_module.send_message.assert_called_once_with(
-        "avr/fusion/attitude/heading", expected
-    )
+    fusion_module.send_message.assert_called_once_with("avr/fusion/heading", expected)
 
 
 @pytest.mark.parametrize(
     "payload, expected",
     [
         (
-            AvrVioHeadingPayload(degrees=0),
-            AvrFusionAttitudeHeadingPayload(heading=0),
+            AVRVIOHeading(hdg=0),
+            AVRFusionHeading(hdg=0),
         ),
         (
-            AvrVioHeadingPayload(degrees=45),
-            AvrFusionAttitudeHeadingPayload(heading=45),
+            AVRVIOHeading(hdg=45),
+            AVRFusionHeading(hdg=45),
         ),
     ],
 )
 def test_fuse_att_heading_populated(
     fusion_module: FusionModule,
-    payload: AvrVioHeadingPayload,
-    expected: AvrFusionAttitudeHeadingPayload,
+    payload: AVRVIOHeading,
+    expected: AVRFusionHeading,
 ) -> None:
     # preload cache
-    fusion_module.message_cache["avr/fusion/groundspeed"] = AvrFusionGroundspeedPayload(
+    fusion_module.message_cache["avr/fusion/groundspeed"] = AVRFusionGroundspeed(
         groundspeed=5
     )
 
     fusion_module.fuse_att_heading(payload)
-    fusion_module.send_message.assert_called_once_with(
-        "avr/fusion/attitude/heading", expected
-    )
+    fusion_module.send_message.assert_called_once_with("avr/fusion/heading", expected)
 
     # make sure item was put in cache
     assert "avr/fusion/course" in fusion_module.message_cache
-    assert fusion_module.message_cache["avr/fusion/course"] == AvrFusionCoursePayload(
-        course=payload["degrees"]
+    assert fusion_module.message_cache["avr/fusion/course"] == AVRFusionCourse(
+        course=payload.hdg
     )
 
 
@@ -265,12 +258,12 @@ def test_fuse_att_heading_populated(
     "geo, velocity, course, groundspeed, heading, expected",
     [
         (
-            AvrFusionGeoPayload(lat=10, lon=10, alt=0),
-            AvrFusionVelocityNedPayload(Vn=0, Ve=0, Vd=0),
-            AvrFusionCoursePayload(course=0),
-            AvrFusionGroundspeedPayload(groundspeed=0),
-            AvrFusionAttitudeHeadingPayload(heading=0),
-            AvrFusionHilGpsPayload(
+            AVRFusionPositionGlobal(lat=10, lon=10, alt=0),
+            AVRFusionVelocity(Vn=0, Ve=0, Vd=0),
+            AVRFusionCourse(course=0),
+            AVRFusionGroundspeed(groundspeed=0),
+            AVRFusionHeading(hdg=0),
+            AVRFusionHILGPSMessage(
                 time_usec=0,
                 fix_type=3,
                 lat=100000000,
@@ -288,12 +281,12 @@ def test_fuse_att_heading_populated(
             ),
         ),
         (
-            AvrFusionGeoPayload(lat=25, lon=25, alt=0),
-            AvrFusionVelocityNedPayload(Vn=1, Ve=2, Vd=3),
-            AvrFusionCoursePayload(course=4),
-            AvrFusionGroundspeedPayload(groundspeed=5),
-            AvrFusionAttitudeHeadingPayload(heading=6),
-            AvrFusionHilGpsPayload(
+            AVRFusionPositionGlobal(lat=25, lon=25, alt=0),
+            AVRFusionVelocity(Vn=1, Ve=2, Vd=3),
+            AVRFusionCourse(course=4),
+            AVRFusionGroundspeed(groundspeed=5),
+            AVRFusionHeading(hdg=6),
+            AVRFusionHILGPSMessage(
                 time_usec=0,
                 fix_type=3,
                 lat=250000000,
@@ -314,28 +307,29 @@ def test_fuse_att_heading_populated(
 )
 def test_assemble_hil_gps_message(
     fusion_module: FusionModule,
-    geo: AvrFusionGeoPayload,
-    velocity: AvrFusionVelocityNedPayload,
-    course: AvrFusionCoursePayload,
-    groundspeed: AvrFusionGroundspeedPayload,
-    heading: AvrFusionAttitudeHeadingPayload,
-    expected: AvrFusionHilGpsPayload,
+    geo: AVRFusionPositionGlobal,
+    velocity: AVRFusionVelocity,
+    course: AVRFusionCourse,
+    groundspeed: AVRFusionGroundspeed,
+    heading: AVRFusionHeading,
+    expected: AVRFusionHILGPSMessage,
 ) -> None:
-    fusion_module.message_cache["avr/fusion/geo"] = geo
-    fusion_module.message_cache["avr/fusion/velocity/ned"] = velocity
+    fusion_module.message_cache["avr/fusion/position/global"] = geo
+    fusion_module.message_cache["avr/fusion/velocity"] = velocity
     fusion_module.message_cache["avr/fusion/course"] = course
     fusion_module.message_cache["avr/fusion/groundspeed"] = groundspeed
-    fusion_module.message_cache["avr/fusion/attitude/heading"] = heading
+    fusion_module.message_cache["avr/fusion/heading"] = heading
 
     fusion_module.assemble_hil_gps_message()
     topic, payload = fusion_module.send_message.call_args[0]
-    assert topic == "avr/fusion/hil_gps"
+    assert topic == "avr/fusion/hil_gps/message"
 
     # check everything in the payload except time
-    for key, value in payload.items():
-        if key != "time_usec":
-            print(key)
-            assert value == expected[key]
+    fields = list(payload.__dict__.keys())
+    fields.remove("time_usec")
+
+    for field in fields:
+        assert getattr(payload, field) == getattr(expected, field)
 
 
 @pytest.mark.parametrize(
@@ -343,41 +337,37 @@ def test_assemble_hil_gps_message(
     [
         # no resync required
         (
-            AvrApriltagsSelectedPayload(
-                tag_id=0, pos=AvrApriltagsSelectedPos(n=0, e=0, d=0), heading=0
-            ),
-            AvrFusionPositionNedPayload(n=0, e=0, d=0),
-            AvrFusionAttitudeHeadingPayload(heading=0),
+            AVRAprilTagsVehiclePosition(tag_id=0, x=0, y=0, z=0, hdg=0),
+            AVRFusionPositionLocal(n=0, e=0, d=0),
+            AVRFusionHeading(hdg=0),
             [0, 0, 0],
             [0, 0, 0],
             None,
         ),
         # test a resync. not too large and not too small of a difference
         (
-            AvrApriltagsSelectedPayload(
-                tag_id=0, pos=AvrApriltagsSelectedPos(n=3, e=4, d=5), heading=10
-            ),
-            AvrFusionPositionNedPayload(n=0, e=0, d=0),
-            AvrFusionAttitudeHeadingPayload(heading=0),
+            AVRAprilTagsVehiclePosition(tag_id=0, x=3, y=4, z=5, hdg=10),
+            AVRFusionPositionLocal(n=0, e=0, d=0),
+            AVRFusionHeading(hdg=0),
             [3, 4, 5],
             [3, 4, 5],
-            AvrVioResyncPayload(n=3, e=4, d=5, heading=10),
+            AVRVIOResync(n=3, e=4, d=5, hdg=10),
         ),
     ],
 )
 def test_on_apriltag_message(
     fusion_module: FusionModule,
-    payload: AvrApriltagsSelectedPayload,
-    position: AvrFusionPositionNedPayload,
-    heading: AvrFusionAttitudeHeadingPayload,
+    payload: AVRAprilTagsVehiclePosition,
+    position: AVRFusionPositionLocal,
+    heading: AVRFusionHeading,
     expected_deriv: List[int],
     expected_pos: List[int],
-    expected_resync: Optional[AvrVioResyncPayload],
+    expected_resync: Optional[AVRVIOResync],
 ) -> None:
     # we're going back to the future, Marty!
     fusion_module.last_apriltag = time.time() - 1
-    fusion_module.message_cache["avr/fusion/position/ned"] = position
-    fusion_module.message_cache["avr/fusion/attitude/heading"] = heading
+    fusion_module.message_cache["avr/fusion/position/local"] = position
+    fusion_module.message_cache["avr/fusion/heading"] = heading
 
     fusion_module.on_apriltag_message(payload)
     assert fusion_module.deriv == pytest.approx(expected_deriv, rel=1e-3)

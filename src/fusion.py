@@ -1,33 +1,32 @@
 import math
 import time
-from typing import Tuple
+from typing import List, Tuple
 
+import config
 import numpy as np
 import pymap3d
-from bell.avr.mqtt.client import MQTTModule
+from bell.avr.mqtt.module import MQTTModule
 from bell.avr.mqtt.payloads import (
-    AvrApriltagsSelectedPayload,
-    AvrFusionAttitudeEulerPayload,
-    AvrFusionAttitudeHeadingPayload,
-    AvrFusionAttitudeQuatPayload,
-    AvrFusionClimbratePayload,
-    AvrFusionCoursePayload,
-    AvrFusionGeoPayload,
-    AvrFusionGroundspeedPayload,
-    AvrFusionHilGpsPayload,
-    AvrFusionPositionNedPayload,
-    AvrFusionVelocityNedPayload,
-    AvrVioHeadingPayload,
-    AvrVioOrientationEulPayload,
-    AvrVioOrientationQuatPayload,
-    AvrVioPositionNedPayload,
-    AvrVioResyncPayload,
-    AvrVioVelocityNedPayload,
+    AVRAprilTagsVehiclePosition,
+    AVRFusionAttitudeEulerRadians,
+    AVRFusionAttitudeQuaternion,
+    AVRFusionClimbRate,
+    AVRFusionCourse,
+    AVRFusionGroundspeed,
+    AVRFusionHeading,
+    AVRFusionHILGPSMessage,
+    AVRFusionPositionGlobal,
+    AVRFusionPositionLocal,
+    AVRFusionVelocity,
+    AVRVIOAttitudeEulerRadians,
+    AVRVIOAttitudeQuaternion,
+    AVRVIOHeading,
+    AVRVIOPositionLocal,
+    AVRVIOResync,
+    AVRVIOVelocity,
 )
 from bell.avr.utils.decorators import run_forever, try_except
 from loguru import logger
-
-import config
 
 
 class FusionModule(MQTTModule):
@@ -35,40 +34,42 @@ class FusionModule(MQTTModule):
         super().__init__()
 
         # on_apriltag storage
-        self.last_pos = [0, 0, 0]
-        self.deriv = [0, 0, 0]
+        self.last_pos: List[float] = [0, 0, 0]
+        self.deriv: List[float] = [0, 0, 0]
         self.last_apriltag = time.time()
 
-        self.topic_map = {
-            "avr/vio/position/ned": self.fuse_pos,
-            "avr/vio/orientation/eul": self.fuse_att_euler,
+        self.topic_callbacks = {
+            "avr/vio/position/local": self.fuse_pos,
+            "avr/vio/attitude/euler/radians": self.fuse_att_euler,
             "avr/vio/heading": self.fuse_att_heading,
-            "avr/vio/velocity/ned": self.fuse_vel,
-            "avr/fusion/position/ned": self.local_to_geo,
+            "avr/vio/velocity": self.fuse_vel,
+            "avr/fusion/position/local": self.local_to_geo,
             # uncomment to re-enable position re-syncing
             # currently not well enough tested/reliable to be competition ready
             # "avr/apriltags/selected": self.on_apriltag_message
         }
 
     @try_except(reraise=True)
-    def local_to_geo(self, payload: AvrFusionPositionNedPayload) -> None:
+    def local_to_geo(self, payload: AVRFusionPositionLocal) -> None:
         """
         Callback for the fusion/pos topic. This method calculates the
         geodetic location from an NED position and origin and publishes it.
         """
         lla: Tuple[float, float, float] = pymap3d.enu2geodetic(
-            float(payload["e"]) / 100,  # East   | Y
-            float(payload["n"]) / 100,  # North  | X
-            -1 * float(payload["d"]) / 100,  # Up     | Z
+            float(payload.e) / 100,  # East   | Y
+            float(payload.n) / 100,  # North  | X
+            -1 * float(payload.d) / 100,  # Up     | Z
             *config.ORIGIN,
             deg=True,
         )
 
-        geo_update = AvrFusionGeoPayload(lat=lla[0], lon=lla[1], alt=lla[2])
-        self.send_message("avr/fusion/geo", geo_update)
+        self.send_message(
+            "avr/fusion/position/global",
+            AVRFusionPositionGlobal(lat=lla[0], lon=lla[1], alt=lla[2]),
+        )
 
     @try_except(reraise=True)
-    def fuse_pos(self, payload: AvrVioPositionNedPayload) -> None:
+    def fuse_pos(self, payload: AVRVIOPositionLocal) -> None:
         """
         Callback for receiving pos data in NED reference frame from VIO and
         publishes into a fusion/pos topic.
@@ -76,13 +77,13 @@ class FusionModule(MQTTModule):
         AVR doesn't have sophisticated fusion yet, so this just re-routes the
         message onto the fusion topic.
         """
-        pos_update = AvrFusionPositionNedPayload(
-            n=payload["n"], e=payload["e"], d=payload["d"]
+        self.send_message(
+            "avr/fusion/position/local",
+            AVRFusionPositionLocal(n=payload.n, e=payload.e, d=payload.d),
         )
-        self.send_message("avr/fusion/position/ned", pos_update)
 
     @try_except(reraise=True)
-    def fuse_vel(self, payload: AvrVioVelocityNedPayload) -> None:
+    def fuse_vel(self, payload: AVRVIOVelocity) -> None:
         """
         Callback for receiving vel data in NED reference frame from VIO and
         publishes into a fusion/vel topic.
@@ -91,40 +92,40 @@ class FusionModule(MQTTModule):
         message onto the fusion topic.
         """
         # forward ned velocity message
-        vmc_vel_update = AvrFusionVelocityNedPayload(
-            Vn=payload["n"], Ve=payload["e"], Vd=payload["d"]
+        self.send_message(
+            "avr/fusion/velocity",
+            AVRFusionVelocity(Vn=payload.Vn, Ve=payload.Ve, Vd=payload.Vd),
         )
-        self.send_message("avr/fusion/velocity/ned", vmc_vel_update)
+
         # logger.debug("avr/fusion/velocity/ned message sent")
 
         # compute groundspeed
-        gs = np.linalg.norm([payload["n"], payload["e"]])
-        groundspeed_update = AvrFusionGroundspeedPayload(groundspeed=float(gs))
-        self.send_message("avr/fusion/groundspeed", groundspeed_update)
+        gs = np.linalg.norm([payload.Vn, payload.Ve])
+        self.send_message(
+            "avr/fusion/groundspeed", AVRFusionGroundspeed(groundspeed=float(gs))
+        )
 
         # arctan gets real noisy when the values get small, so we just lock course
         # to heading when we aren't really moving
         if gs >= config.COURSE_THRESHOLD:
-            course = math.atan2(payload["e"], payload["n"])
+            course = math.atan2(payload.Ve, payload.Vn)
             # wrap [-pi, pi] to [0, 360]
             if course < 0:
                 course += 2 * math.pi
 
             # rad to deg
-            course = math.degrees(course)
-            course_update = AvrFusionCoursePayload(course=course)
-
-            self.send_message("avr/fusion/course", course_update)
+            self.send_message(
+                "avr/fusion/course", AVRFusionCourse(course=math.degrees(course))
+            )
 
         m_per_s_2_ft_per_min = 196.85
-        climb_rate_update = AvrFusionClimbratePayload(
-            climb_rate_fps=-1 * payload["d"] * m_per_s_2_ft_per_min
+        self.send_message(
+            "avr/fusion/climb_rate",
+            AVRFusionClimbRate(climb_rate=-1 * payload.Vd * m_per_s_2_ft_per_min),
         )
 
-        self.send_message("avr/fusion/climbrate", climb_rate_update)
-
     @try_except(reraise=True)
-    def fuse_att_quat(self, payload: AvrVioOrientationQuatPayload) -> None:
+    def fuse_att_quat(self, payload: AVRVIOAttitudeQuaternion) -> None:
         """
         Callback for receiving quaternion att data in NED reference frame
         from vio and publishes into a fusion/att/quat topic.
@@ -132,13 +133,15 @@ class FusionModule(MQTTModule):
         AVR doesn't have sophisticated fusion yet, so this just re-routes
         the message onto the fusion topic.
         """
-        quat_update = AvrFusionAttitudeQuatPayload(
-            w=payload["w"], x=payload["x"], y=payload["y"], z=payload["z"]
+        self.send_message(
+            "avr/fusion/attitude/quaternion",
+            AVRFusionAttitudeQuaternion(
+                w=payload.w, x=payload.x, y=payload.y, z=payload.z
+            ),
         )
-        self.send_message("avr/fusion/attitude/quat", quat_update)
 
     @try_except(reraise=True)
-    def fuse_att_euler(self, payload: AvrVioOrientationEulPayload) -> None:
+    def fuse_att_euler(self, payload: AVRVIOAttitudeEulerRadians) -> None:
         """
         Callback for receiving euler att data in NED reference frame from VIO and
         publishes into a fusion/att/euler topic.
@@ -146,13 +149,15 @@ class FusionModule(MQTTModule):
         AVR doesn't have sophisticated fusion yet, so this just re-routes
         the message onto the fusion topic.
         """
-        euler_update = AvrFusionAttitudeEulerPayload(
-            psi=payload["psi"], theta=payload["theta"], phi=payload["phi"]
+        self.send_message(
+            "avr/fusion/attitude/euler/radians",
+            AVRFusionAttitudeEulerRadians(
+                psi=payload.psi, theta=payload.theta, phi=payload.phi
+            ),
         )
-        self.send_message("avr/fusion/attitude/euler", euler_update)
 
     @try_except(reraise=True)
-    def fuse_att_heading(self, payload: AvrVioHeadingPayload) -> None:
+    def fuse_att_heading(self, payload: AVRVIOHeading) -> None:
         """
         Callback for receiving heading att data in NED reference frame from VIO and
         publishes into a fusion/att/heading topic.
@@ -160,19 +165,18 @@ class FusionModule(MQTTModule):
         AVR doesn't have sophisticated fusion yet, so this just re-routes
         the message onto the fusion topic.
         """
-        heading_update = AvrFusionAttitudeHeadingPayload(heading=payload["degrees"])
-        self.send_message("avr/fusion/attitude/heading", heading_update)
+        self.send_message("avr/fusion/heading", AVRFusionHeading(hdg=payload.hdg))
 
         # if the groundspeed is below the threshold, we lock the course to the heading
         if "avr/fusion/groundspeed" not in self.message_cache:
             logger.debug("Empty groundspeed in fuse att heading")
 
         elif (
-            self.message_cache["avr/fusion/groundspeed"]["groundspeed"]
+            self.message_cache["avr/fusion/groundspeed"].groundspeed
             < config.COURSE_THRESHOLD
         ):
-            self.message_cache["avr/fusion/course"] = AvrFusionCoursePayload(
-                course=payload["degrees"]
+            self.message_cache["avr/fusion/course"] = AVRFusionCourse(
+                course=payload.hdg
             )
 
     @run_forever(frequency=10)
@@ -183,107 +187,101 @@ class FusionModule(MQTTModule):
         message that is exactly what the FCC needs to generate the hil_gps message
         (with heading)
         """
-        if "avr/fusion/geo" not in self.message_cache:
-            logger.debug("Waiting for avr/fusion/geo to be populated")
+        if "avr/fusion/position/global" not in self.message_cache:
+            logger.debug("Waiting for avr/fusion/position/global to be populated")
             return
 
-        goedetic = self.message_cache["avr/fusion/geo"]
-        lat = int(goedetic["lat"] * 10000000)  # convert to int32 format
-        lon = int(goedetic["lon"] * 10000000)  # convert to int32 format
+        goedetic = self.message_cache["avr/fusion/position/global"]
+        lat = int(goedetic.lat * 10000000)  # convert to int32 format
+        lon = int(goedetic.lon * 10000000)  # convert to int32 format
 
         # if lat / lon is 0, that means the ned -> lla conversion hasn't run yet,
         # don't send that data to FCC
         if lat == 0 or lon == 0:
             return
 
-        if "avr/fusion/velocity/ned" not in self.message_cache:
-            logger.debug("Waiting for avr/fusion/velocity/ned to be populated")
+        if "avr/fusion/velocity" not in self.message_cache:
+            logger.debug("Waiting for avr/fusion/velocity to be populated")
             return
-        elif self.message_cache["avr/fusion/velocity/ned"]["Vn"] is None:
-            logger.debug("avr/fusion/velocity/ned/vn message cache is empty")
+        elif self.message_cache["avr/fusion/velocity"].Vn is None:
+            logger.debug("avr/fusion/velocity message cache is empty")
             return
 
         crs = 0
         if "avr/fusion/course" in self.message_cache:
-            if self.message_cache["avr/fusion/course"]["course"] is not None:
-                crs = int(self.message_cache["avr/fusion/course"]["course"])
+            if self.message_cache["avr/fusion/course"].course is not None:
+                crs = int(self.message_cache["avr/fusion/course"].course)
         else:
             logger.debug("Waiting for avr/fusion/course message to be populated")
             return
 
         gs = 0
         if "avr/fusion/groundspeed" in self.message_cache:
-            if self.message_cache["avr/fusion/groundspeed"]["groundspeed"] is not None:
-                gs = int(self.message_cache["avr/fusion/groundspeed"]["groundspeed"])
+            if self.message_cache["avr/fusion/groundspeed"].groundspeed is not None:
+                gs = int(self.message_cache["avr/fusion/groundspeed"].groundspeed)
         else:
             logger.debug("avr/fusion/groundspeed message cache is empty")
             return
 
-        if "avr/fusion/attitude/heading" in self.message_cache:
-            heading = int(
-                self.message_cache["avr/fusion/attitude/heading"]["heading"] * 100
-            )
+        if "avr/fusion/heading" in self.message_cache:
+            heading = int(self.message_cache["avr/fusion/heading"].hdg * 100)
         else:
             logger.debug("Waiting for avr/fusion/attitude/heading to be populated")
             return
 
-        hil_gps_update = AvrFusionHilGpsPayload(
+        hil_gps_update = AVRFusionHILGPSMessage(
             time_usec=int(time.time() * 1000000),
             fix_type=int(config.HIL_GPS_CONSTANTS["fix_type"]),  # 3 - 3D fix
             lat=lat,
             lon=lon,
             alt=int(
-                self.message_cache["avr/fusion/geo"]["alt"] * 1000
+                self.message_cache["avr/fusion/position/global"].alt * 1000
             ),  # convert m to mm
             eph=int(config.HIL_GPS_CONSTANTS["eph"]),  # cm
             epv=int(config.HIL_GPS_CONSTANTS["epv"]),  # cm
             vel=gs,
-            vn=int(self.message_cache["avr/fusion/velocity/ned"]["Vn"]),
-            ve=int(self.message_cache["avr/fusion/velocity/ned"]["Ve"]),
-            vd=int(self.message_cache["avr/fusion/velocity/ned"]["Vd"]),
+            vn=int(self.message_cache["avr/fusion/velocity"].Vn),
+            ve=int(self.message_cache["avr/fusion/velocity"].Ve),
+            vd=int(self.message_cache["avr/fusion/velocity"].Vd),
             cog=int(crs * 100),
             satellites_visible=int(config.HIL_GPS_CONSTANTS["satellites_visible"]),
             heading=heading,
         )
-        self.send_message("avr/fusion/hil_gps", hil_gps_update)
+        self.send_message("avr/fusion/hil_gps/message", hil_gps_update)
 
     @try_except(reraise=True)
-    def on_apriltag_message(self, msg: AvrApriltagsSelectedPayload) -> None:
+    def on_apriltag_message(self, payload: AVRAprilTagsVehiclePosition) -> None:
         if (
-            "avr/fusion/position/ned" not in self.message_cache
-            or "avr/fusion/attitude/heading" not in self.message_cache
+            "avr/fusion/position/local" not in self.message_cache
+            or "avr/fusion/heading" not in self.message_cache
         ):
             logger.debug(
-                "Waiting for avr/fusion/position/ned and avr/fusion/attitude/heading to be populated"
+                "Waiting for avr/fusion/position/local and avr/fusion/heading to be populated"
             )
             return
 
         now = time.time()
 
         # pull ned and heading from cache
-        cam_ned = self.message_cache["avr/fusion/position/ned"]
-        cam_heading = self.message_cache["avr/fusion/attitude/heading"]["heading"]
+        cam_ned = self.message_cache["avr/fusion/position/local"]
+        cam_heading = self.message_cache["avr/fusion/heading"].hdg
 
-        # get april tag ned and heading
-        at_ned = msg["pos"]
-        at_heading = msg["heading"]
+        at_ned = [payload.x, payload.y, payload.z]
 
         # compute differences
-        n_dist = abs(at_ned["n"] - cam_ned["n"])
-        e_dist = abs(at_ned["e"] - cam_ned["e"])
-        d_dist = abs(at_ned["d"] - cam_ned["d"])
+        n_dist = abs(at_ned[0] - cam_ned.n)
+        e_dist = abs(at_ned[1] - cam_ned.e)
+        d_dist = abs(at_ned[2] - cam_ned.d)
 
         norm = np.linalg.norm([n_dist, e_dist, d_dist])
 
-        heading_delta = abs(at_heading - cam_heading)
+        heading_delta = abs(payload.hdg - cam_heading)
         if heading_delta > 180:
             heading_delta = 360 - heading_delta
 
-        for idx, val in enumerate(at_ned.keys()):
-            self.deriv[idx] = (at_ned[val] - self.last_pos[idx]) / (
-                now - self.last_apriltag
-            )
-            self.last_pos[idx] = at_ned[val]
+        for idx, val in enumerate(at_ned):
+            self.deriv[idx] = (val - self.last_pos[idx]) / (now - self.last_apriltag)
+            self.last_pos[idx] = val
 
         deriv_norm = np.linalg.norm(self.deriv)
         if (
@@ -295,15 +293,12 @@ class FusionModule(MQTTModule):
             if d_dist > config.POS_D_THRESHOLD:
                 # don't resync Z if del_d is too great,
                 # reject AT readings that are extraineous
-                at_ned["d"] = cam_ned["d"]
+                at_ned[2] = cam_ned.d
 
-            resync = AvrVioResyncPayload(
-                n=at_ned["n"],
-                e=at_ned["e"],
-                d=at_ned["d"],
-                heading=at_heading,
+            self.send_message(
+                "avr/vio/resync",
+                AVRVIOResync(n=at_ned[0], e=at_ned[1], d=at_ned[2], hdg=payload.hdg),
             )
-            self.send_message("avr/vio/resync", resync)
 
         self.last_apriltag = now
 
