@@ -2,18 +2,19 @@
 
 [[package]]
 name = "bell-avr-libraries"
-version = "0.2.0a0"
+version = "0.2.0a2"
 description = "Common Python libraries used by parts of Bell AVR"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "bell_avr_libraries-0.2.0a0-py3-none-any.whl", hash = "sha256:2b0a8b2adfc5100fe14046d09edfcd1e8c32fc8e2b6d360e304e232d72cbc300"},
-    {file = "bell_avr_libraries-0.2.0a0.tar.gz", hash = "sha256:459d97b8468946e173de951d76548b1044fc73a393bb486426ee16ac9ce3d5aa"},
+    {file = "bell_avr_libraries-0.2.0a2-py3-none-any.whl", hash = "sha256:120b4871edf731c19862d11f713600e75719bd0880ec1dbd76c87e56bf501305"},
+    {file = "bell_avr_libraries-0.2.0a2.tar.gz", hash = "sha256:3b309543c0812befe58a556edc1e388636ffca2037f79542430aa346567a2487"},
 ]
 
 [package.dependencies]
-loguru = ">=0.6.0,<0.7.0"
+loguru = ">=0.6,<0.8"
+numpy = ">=1.24.3,<2.0.0"
 paho-mqtt = ">=1.6.1,<2.0.0"
 pydantic = ">=1.10.2,<2.0.0"
 
@@ -595,4 +596,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "1d2f53c804f3a2b740a13aeeb0ec8830b09af81a8c2289f2eca602ad2323dfe3"
+content-hash = "2b9d2739524a48c1341778b407c6ab944a9449092a594c24f9e697f31399024d"
