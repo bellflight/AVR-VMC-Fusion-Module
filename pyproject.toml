@@ -10,14 +10,14 @@
 [tool.poetry.dependencies]
     python             = ">=3.9,<3.12"
     loguru             = "^0.6.0"
-    bell-avr-libraries = "0.2.0a0"
-    numpy              = "^1.23.5"
-    pymap3d            = "^2.9.1"
+    bell-avr-libraries = "0.2.0a2"
+    numpy              = "^1.24.3"
+    pymap3d            = "^3.0.1"
 
 [tool.poetry.group.dev.dependencies]
-    pre-commit  = "^3.1.1"
-    pytest      = "^7.2.1"
-    pytest-cov  = "^4.0.0"
+    pre-commit  = "3.3.2"
+    pytest      = "^7.3.1"
+    pytest-cov  = "4.1.0"
     pytest-mock = "^3.10.0"
 
 [tool.pyright]
