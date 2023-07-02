@@ -9,7 +9,7 @@
 
 [tool.poetry.dependencies]
     python             = ">=3.9,<3.12"
-    loguru             = "0.6.0"
+    loguru             = "0.7.0"
     bell-avr-libraries = "0.2.0a4"
     numpy              = "1.25.0"
     pymap3d            = "3.0.1"
