@@ -1,6 +1,6 @@
 import math
 import time
-from typing import List, Tuple
+from typing import List
 
 import config
 import numpy as np
@@ -55,7 +55,7 @@ class FusionModule(MQTTModule):
         Callback for the fusion/pos topic. This method calculates the
         geodetic location from an NED position and origin and publishes it.
         """
-        lla: Tuple[float, float, float] = pymap3d.enu2geodetic(
+        lla = pymap3d.enu.enu2geodetic(
             float(payload.e) / 100,  # East   | Y
             float(payload.n) / 100,  # North  | X
             -1 * float(payload.d) / 100,  # Up     | Z
