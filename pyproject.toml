@@ -19,12 +19,13 @@
     pytest      = "7.4.0"
     pytest-cov  = "4.1.0"
     pytest-mock = "3.11.1"
+    nptyping    = "^2.5.0"
 
 [tool.pyright]
-    typeCheckingMode = "basic"
-    venvPath         = "."
-    venv             = ".venv"
-    reportMissingParameterType  = true
+    typeCheckingMode           = "basic"
+    venvPath                   = "."
+    venv                       = ".venv"
+    reportMissingParameterType = true
 
 [tool.ruff]
     ignore = ["E501"]
