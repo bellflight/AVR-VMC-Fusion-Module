@@ -1,4 +1,10 @@
-ORIGIN = (32.808549, -97.156345, 161.5)
+import os
+
+ORIGIN = (
+    float(os.getenv("PX4_HOME_LAT", 32.808549)),
+    float(os.getenv("PX4_HOME_LON", -97.156345)),
+    float(os.getenv("PX4_HOME_ALT", 161.5)),
+)
 """
 Origin used for NED to Lat/Lon/Alt conversion
 Bell HQ VIP helipad
