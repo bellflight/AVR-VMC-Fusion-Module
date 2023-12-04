@@ -11,7 +11,7 @@
     python             = ">=3.9,<3.13"
     loguru             = "0.7.2"
     bell-avr-libraries = "0.2.0a7"
-    numpy              = "1.26.1"
+    numpy              = "1.26.2"
     pymap3d            = "3.0.1"
 
 [tool.poetry.group.dev.dependencies]
